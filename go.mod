@@ -29,7 +29,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/qiangxue/fasthttp-routing v0.0.0-20160225050629-6ccdc2a18d87
 	github.com/robfig/go-cache v0.0.0-20130306151617-9fc39e0dbf62
-	github.com/satori/go.uuid v1.2.0
+	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	github.com/spf13/cast v1.3.0
 	github.com/stretchr/testify v1.8.1
 	github.com/super-l/machine-code v0.0.0-20210720085303-62525d58dab0

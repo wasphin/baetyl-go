@@ -53,7 +53,7 @@ type Domain struct {
 
 // NewContext create a new context with gin context
 func NewHttpContext(inner *gin.Context) *Context {
-	return &Context{inner, log.With(log.Any(LogKeyRequestID, uuid.NewV4().String()))}
+	return &Context{inner, log.With(log.Any(LogKeyRequestID, uuid.Must(uuid.NewV4()).String()))}
 }
 
 // NewContext create a new context with log
@@ -93,7 +93,7 @@ func (c *Context) TraceCostTime(event string) {
 // SetRequestID  set log requestID
 func (c *Context) SetRequestID(requestID string) {
 	if requestID == "" {
-		requestID = uuid.NewV4().String()
+		requestID = uuid.Must(uuid.NewV4()).String()
 	}
 	c.Logger = c.Logger.With(log.Any(LogKeyRequestID, requestID))
 	c.Set(LogKeyRequestID, requestID)
