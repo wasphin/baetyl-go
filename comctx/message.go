@@ -14,6 +14,10 @@ func (c Code) String() string {
 	return templates[ErrUnknown]
 }
 
+func (c Code) ToHTTPStatus() int {
+	return getHTTPStatus(c)
+}
+
 // all codes
 const (
 	// * plugin
