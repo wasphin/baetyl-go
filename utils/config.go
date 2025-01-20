@@ -39,7 +39,7 @@ func ParseEnv(data []byte) ([]byte, error) {
 		t := strings.Split(s, "=")
 		envMap[t[0]] = t[1]
 	}
-	tmpl, err := template.New("template").Option("missingkey=error").Parse(text)
+	tmpl, err := template.New("template").Option("missingkey=default").Parse(text)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
