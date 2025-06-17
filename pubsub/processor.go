@@ -10,6 +10,9 @@ import (
 
 var (
 	ErrProcessorTimeout = errors.New("failed to send message because of timeout")
+
+	ErrProcessorToManyMessages = errors.New("too many messages")
+	ErrProcessorInvalidHandler = errors.New("invalid handler")
 )
 
 type Processor interface {
@@ -75,13 +78,29 @@ func (p *processor) timerProcessing() error {
 }
 
 func (p *processor) processing() error {
+	sem := make(chan struct{}, 100)
+
 	for {
 		select {
 		case msg := <-p.channel:
-			if p.handler != nil {
-				if err := p.handler.OnMessage(msg); err != nil {
-					p.log.Error("failed to handle message", log.Error(err))
-				}
+			if p.handler == nil {
+				p.log.Error("failed to handle message", log.Error(ErrProcessorInvalidHandler))
+				return ErrProcessorInvalidHandler
+			}
+
+			select {
+			case sem <- struct{}{}:
+				go func(msg any) {
+					defer func() { <-sem }()
+
+					// handler 中有超时设置
+					if err := p.handler.OnMessage(msg); err != nil {
+						p.log.Error("failed to handle message", log.Error(err))
+					}
+				}(msg)
+
+			default:
+				p.log.Warn("failed to handle message", log.Error(ErrProcessorToManyMessages))
 			}
 		case <-p.tomb.Dying():
 			return nil
