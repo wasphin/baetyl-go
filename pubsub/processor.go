@@ -100,7 +100,7 @@ func (p *processor) processing() error {
 				}(msg)
 
 			default:
-				p.log.Warn("failed to handle message", log.Error(ErrProcessorToManyMessages))
+				p.log.Warn("failed to handle message", log.Error(ErrProcessorToManyMessages), log.Any("m", msg))
 			}
 		case <-p.tomb.Dying():
 			return nil
