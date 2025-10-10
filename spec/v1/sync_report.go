@@ -103,4 +103,5 @@ type ContainerInfo struct {
 	Usage  map[string]string `yaml:"usage,omitempty" json:"usage,omitempty"`
 	State  ContainerState    `yaml:"state,omitempty" json:"state,omitempty"`
 	Reason string            `yaml:"reason,omitempty" json:"reason,omitempty"`
+	Image  string            `yaml:"image,omitempty" json:"image,omitempty"`
 }
