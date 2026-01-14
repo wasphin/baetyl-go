@@ -60,6 +60,7 @@ func Test_client(t *testing.T) {
 
 	client, err := NewClient(options, msg)
 	assert.NoError(t, err)
+	defer client.Close()
 	result := make(chan *SyncResults, 1000)
 	extra := map[string]interface{}{"a": 1}
 

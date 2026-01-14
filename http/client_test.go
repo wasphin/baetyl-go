@@ -67,6 +67,8 @@ func TestClientBadRequests(t *testing.T) {
 
 	ops.SyncMaxConcurrency = 10
 	c = NewClient(ops)
+	defer c.Close()
+
 	result := make(chan *SyncResults, 1000)
 	for i := 0; i < 100; i++ {
 		c.SyncSendUrl("GET", ms.URL, nil, result, map[string]interface{}{})

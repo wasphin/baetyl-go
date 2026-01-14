@@ -31,6 +31,7 @@ type Client struct {
 
 // NewClient 函数用于创建一个Client对象
 // readMsgChan 为读取信息的通道 需要配置和并发数量一致
+// Client must be closed to release resources
 func NewClient(ops *ClientOptions, readMsgChan []chan *v1.Message) (*Client, error) {
 	u := url.URL{Scheme: ops.Schema, Host: ops.Address, Path: ops.Path}
 	dialer := websocket.Dialer{
@@ -191,5 +192,11 @@ func (c *Client) SyncSendMsg(msg []byte, syncResult chan *SyncResults, extra map
 		default:
 			log.Error(errors.New("can not add send result to syncResult from websocket con"))
 		}
+	}
+}
+
+func (c *Client) Close() {
+	if c.antPool != nil {
+		c.antPool.Release()
 	}
 }

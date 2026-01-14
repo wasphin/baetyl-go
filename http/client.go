@@ -27,6 +27,7 @@ type Client struct {
 }
 
 // NewClient creates a new http client
+// Client must be closed to release resources
 func NewClient(ops *ClientOptions) *Client {
 	transport := &gohttp.Transport{
 		Proxy:                 gohttp.ProxyFromEnvironment,
@@ -60,15 +61,12 @@ func NewClient(ops *ClientOptions) *Client {
 		}
 		transport.DialContext = dialer.DialContext
 	}
-	p, err := ants.NewPool(1)
-	if err != nil {
-		log.Error(errors.Errorf("http init pool error :%s", err))
+	if ops.SyncMaxConcurrency <= 0 {
+		ops.SyncMaxConcurrency = 1
 	}
-	if ops.SyncMaxConcurrency != 0 {
-		p, err = ants.NewPool(ops.SyncMaxConcurrency)
-		if err != nil {
-			log.Error(errors.Errorf("http init pool error :%s", err))
-		}
+	p, err := ants.NewPool(ops.SyncMaxConcurrency)
+	if err != nil {
+		log.Error(errors.Errorf("http init pool error: %s", err))
 	}
 
 	return &Client{
@@ -186,6 +184,12 @@ func (c *Client) SyncSendUrl(method, url string, body io.Reader, syncResult chan
 		default:
 			log.Error(errors.New("can not add send result to syncResult from http con"))
 		}
+	}
+}
+
+func (c *Client) Close() {
+	if c.antPool != nil {
+		c.antPool.Release()
 	}
 }
 
