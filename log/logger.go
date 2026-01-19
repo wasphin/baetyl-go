@@ -60,18 +60,12 @@ func Init(cfg Config, fields ...Field) (*Logger, error) {
 	}
 	if cfg.EncodeLevel != "" {
 		c.EncoderConfig.EncodeLevel = func(lvl zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-			// 去掉 fmt.Sprintf
-			enc.AppendString(strings.ReplaceAll(cfg.EncodeLevel, "level", lvl.String()))
+			ft := strings.ReplaceAll(cfg.EncodeLevel, "level", "%s")
+			enc.AppendString(fmt.Sprintf(ft, lvl.String()))
 		}
 	}
-	// 限制 stacktrace 级别
-	c.EncoderConfig.StacktraceKey = "stacktrace"
 	c.Level = zap.NewAtomicLevelAt(parseLevel(cfg.Level))
-	l, err := c.Build(
-		zap.Fields(fields...),
-		// 只在 Error 以上打 stacktrace
-		zap.AddStacktrace(zapcore.ErrorLevel),
-	)
+	l, err := c.Build(zap.Fields(fields...))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
