@@ -51,7 +51,9 @@ const (
 
 	// MessageCommandConnect start remote debug command
 	MessageCommandConnect = "connect"
-	// MessageCommandDisconnect stop remote debug command
+	// MessageCommandProxy start remote proxy command, cloud -> edge
+	MessageCommandProxy = "proxy"
+	// MessageCommandDisconnect stop remote debug/proxy command
 	MessageCommandDisconnect = "disconnect"
 	// MessageCommandLogs logs
 	MessageCommandLogs = "logs"
