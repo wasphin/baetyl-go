@@ -4,5 +4,5 @@ type ProxyRequest struct {
 	// target service info
 	Schema  string `json:"schema" default:"http"`
 	Address string `json:"address"`
-	Port    int16  `json:"port"`
+	Port    int32  `json:"port"`
 }
