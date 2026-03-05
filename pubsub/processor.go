@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"sync"
 	"time"
 
 	"github.com/baetyl/baetyl-go/v2/errors"
@@ -18,30 +19,24 @@ type Processor interface {
 }
 
 type processor struct {
-	channel  <-chan interface{}
-	timeout  time.Duration
-	handler  Handler
-	workerCh chan interface{}
-	tomb     utils.Tomb
-	log      *log.Logger
+	channel <-chan interface{}
+	timeout time.Duration
+	handler Handler
+	tomb    utils.Tomb
+	log     *log.Logger
 }
 
 func NewProcessor(ch <-chan interface{}, timeout time.Duration, handler Handler) Processor {
 	return &processor{
-		channel:  ch,
-		timeout:  timeout,
-		handler:  handler,
-		workerCh: make(chan interface{}, 100),
-		tomb:     utils.Tomb{},
-		log:      log.L().With(log.Any("pubsub", "processor")),
+		channel: ch,
+		timeout: timeout,
+		handler: handler,
+		tomb:    utils.Tomb{},
+		log:     log.L().With(log.Any("pubsub", "processor")),
 	}
 }
 
 func (p *processor) Start() {
-	// 启动 worker pool
-	for i := 0; i < 10; i++ {
-		go p.worker()
-	}
 	if p.timeout > 0 {
 		p.tomb.Go(p.timerProcessing)
 	} else {
@@ -52,7 +47,6 @@ func (p *processor) Start() {
 func (p *processor) Close() {
 	p.tomb.Kill(nil)
 	p.tomb.Wait()
-	close(p.workerCh)
 }
 
 func (p *processor) timerProcessing() error {
@@ -61,7 +55,11 @@ func (p *processor) timerProcessing() error {
 	for {
 		select {
 		case msg := <-p.channel:
-			p.workerCh <- msg
+			if p.handler != nil {
+				if err := p.handler.OnMessage(msg); err != nil {
+					p.log.Error("failed to handle message", log.Error(err))
+				}
+			}
 			timer.Reset(p.timeout)
 		case <-timer.C:
 			p.log.Warn("pubsub timeout")
@@ -78,22 +76,29 @@ func (p *processor) timerProcessing() error {
 }
 
 func (p *processor) processing() error {
-	for {
-		select {
-		case msg := <-p.channel:
-			p.workerCh <- msg
-		case <-p.tomb.Dying():
-			return nil
-		}
-	}
-}
+	// 启动 N 个 worker 并行处理
+	workerCount := 100
+	var wg sync.WaitGroup
 
-func (p *processor) worker() {
-	for msg := range p.workerCh {
-		if p.handler != nil {
-			if err := p.handler.OnMessage(msg); err != nil {
-				p.log.Error("failed to handle message", log.Error(err))
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case msg, ok := <-p.channel:
+					if !ok {
+						return
+					}
+					if p.handler != nil {
+						p.handler.OnMessage(msg)
+					}
+				case <-p.tomb.Dying():
+					return
+				}
 			}
-		}
+		}()
 	}
+	wg.Wait()
+	return nil
 }
