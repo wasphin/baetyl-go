@@ -50,9 +50,9 @@ func (p *processor) Start() {
 }
 
 func (p *processor) Close() {
-	close(p.workerCh)
 	p.tomb.Kill(nil)
 	p.tomb.Wait()
+	close(p.workerCh)
 }
 
 func (p *processor) timerProcessing() error {
