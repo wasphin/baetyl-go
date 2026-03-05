@@ -18,24 +18,30 @@ type Processor interface {
 }
 
 type processor struct {
-	channel <-chan interface{}
-	timeout time.Duration
-	handler Handler
-	tomb    utils.Tomb
-	log     *log.Logger
+	channel  <-chan interface{}
+	timeout  time.Duration
+	handler  Handler
+	workerCh chan interface{}
+	tomb     utils.Tomb
+	log      *log.Logger
 }
 
 func NewProcessor(ch <-chan interface{}, timeout time.Duration, handler Handler) Processor {
 	return &processor{
-		channel: ch,
-		timeout: timeout,
-		handler: handler,
-		tomb:    utils.Tomb{},
-		log:     log.L().With(log.Any("pubsub", "processor")),
+		channel:  ch,
+		timeout:  timeout,
+		handler:  handler,
+		workerCh: make(chan interface{}, 100),
+		tomb:     utils.Tomb{},
+		log:      log.L().With(log.Any("pubsub", "processor")),
 	}
 }
 
 func (p *processor) Start() {
+	// 启动 worker pool
+	for i := 0; i < 10; i++ {
+		go p.worker()
+	}
 	if p.timeout > 0 {
 		p.tomb.Go(p.timerProcessing)
 	} else {
@@ -44,6 +50,7 @@ func (p *processor) Start() {
 }
 
 func (p *processor) Close() {
+	close(p.workerCh)
 	p.tomb.Kill(nil)
 	p.tomb.Wait()
 }
@@ -54,11 +61,7 @@ func (p *processor) timerProcessing() error {
 	for {
 		select {
 		case msg := <-p.channel:
-			if p.handler != nil {
-				if err := p.handler.OnMessage(msg); err != nil {
-					p.log.Error("failed to handle message", log.Error(err))
-				}
-			}
+			p.workerCh <- msg
 			timer.Reset(p.timeout)
 		case <-timer.C:
 			p.log.Warn("pubsub timeout")
@@ -78,13 +81,19 @@ func (p *processor) processing() error {
 	for {
 		select {
 		case msg := <-p.channel:
-			if p.handler != nil {
-				if err := p.handler.OnMessage(msg); err != nil {
-					p.log.Error("failed to handle message", log.Error(err))
-				}
-			}
+			p.workerCh <- msg
 		case <-p.tomb.Dying():
 			return nil
+		}
+	}
+}
+
+func (p *processor) worker() {
+	for msg := range p.workerCh {
+		if p.handler != nil {
+			if err := p.handler.OnMessage(msg); err != nil {
+				p.log.Error("failed to handle message", log.Error(err))
+			}
 		}
 	}
 }
