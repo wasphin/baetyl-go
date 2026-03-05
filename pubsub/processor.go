@@ -1,7 +1,6 @@
 package pubsub
 
 import (
-	"sync"
 	"time"
 
 	"github.com/baetyl/baetyl-go/v2/errors"
@@ -76,29 +75,16 @@ func (p *processor) timerProcessing() error {
 }
 
 func (p *processor) processing() error {
-	// 启动 N 个 worker 并行处理
-	workerCount := 100
-	var wg sync.WaitGroup
-
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case msg, ok := <-p.channel:
-					if !ok {
-						return
-					}
-					if p.handler != nil {
-						p.handler.OnMessage(msg)
-					}
-				case <-p.tomb.Dying():
-					return
+	for {
+		select {
+		case msg := <-p.channel:
+			if p.handler != nil {
+				if err := p.handler.OnMessage(msg); err != nil {
+					p.log.Error("failed to handle message", log.Error(err))
 				}
 			}
-		}()
+		case <-p.tomb.Dying():
+			return nil
+		}
 	}
-	wg.Wait()
-	return nil
 }
