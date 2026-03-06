@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	pubTimeout = time.Millisecond * 10
+	pubTimeout = time.Millisecond * 5000
 )
 
 var (
