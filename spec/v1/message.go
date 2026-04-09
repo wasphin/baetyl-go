@@ -83,3 +83,33 @@ type Message struct {
 	Metadata map[string]string `yaml:"meta" json:"meta"`
 	Content  LazyValue         `yaml:"content" json:"content"`
 }
+
+// PartitionKey 返回消息的分区键，用于将消息路由到固定 worker 以保证有序处理。
+// 相同 key 的消息由同一个 worker 串行处理；不同 key 的消息可并发处理。
+func (m *Message) PartitionKey() string {
+	switch m.Kind {
+	case MessageDevices:
+		// 设备列表变更：全局串行（同一 worker）
+		// 原因：该消息会触发 reSubscribe，影响所有设备，必须与其他设备消息严格有序
+		return string(m.Kind)
+
+	case MessageDeviceEvent, MessageDevicePropertyGet, MessageDeviceDelta:
+		// 设备属性/事件消息：按设备名分区，同一设备内有序，不同设备并发
+		if device := m.Metadata["device"]; device != "" {
+			return device
+		}
+		return string(m.Kind)
+
+	case MessageCMD, MessageData:
+		// 远程调试 session 消息：按 session 标识分区
+		// key 与 engine/msg_handler.go 中 `key` 变量构造方式一致
+		return m.Metadata["namespace"] + "_" +
+			m.Metadata["name"] + "_" +
+			m.Metadata["container"] + "_" +
+			m.Metadata["token"]
+
+	default:
+		// 其他消息按 Kind 分区，同类型消息串行，保守兜底
+		return string(m.Kind)
+	}
+}
