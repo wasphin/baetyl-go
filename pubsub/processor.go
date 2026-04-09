@@ -5,6 +5,7 @@ import (
 
 	"github.com/baetyl/baetyl-go/v2/errors"
 	"github.com/baetyl/baetyl-go/v2/log"
+	v1 "github.com/baetyl/baetyl-go/v2/spec/v1"
 	"github.com/baetyl/baetyl-go/v2/utils"
 )
 
@@ -119,7 +120,7 @@ const defaultWorkerChanSize = 100
 // NewOrderedProcessor creates a processor that guarantees messages with the same
 // partition key (returned by keyFunc) are processed sequentially.
 // workerNum controls the number of parallel workers; use 0 for defaultWorkerNum (16).
-func NewOrderedProcessor(ch <-chan interface{}, keyFunc KeyFunc, workerNum int, handler Handler) Processor {
+func NewOrderedProcessor(ch <-chan interface{}, workerNum int, handler Handler) Processor {
 	if workerNum <= 0 {
 		workerNum = defaultWorkerNum
 	}
@@ -130,7 +131,6 @@ func NewOrderedProcessor(ch <-chan interface{}, keyFunc KeyFunc, workerNum int, 
 	return &orderedProcessor{
 		channel:   ch,
 		handler:   handler,
-		keyFunc:   keyFunc,
 		workerNum: workerNum,
 		workers:   workers,
 		log:       log.L().With(log.Any("pubsub", "ordered-processor")),
@@ -140,7 +140,6 @@ func NewOrderedProcessor(ch <-chan interface{}, keyFunc KeyFunc, workerNum int, 
 type orderedProcessor struct {
 	channel   <-chan interface{}
 	handler   Handler
-	keyFunc   KeyFunc
 	workerNum int
 	workers   []chan interface{}
 	tomb      utils.Tomb
@@ -172,7 +171,7 @@ func (p *orderedProcessor) dispatch() error {
 				p.log.Error("failed to handle message", log.Error(ErrProcessorInvalidHandler))
 				return ErrProcessorInvalidHandler
 			}
-			key := p.keyFunc(msg)
+			key := getPartitionKey(msg)
 			idx := fnv32a(key) % uint32(p.workerNum)
 			select {
 			case p.workers[idx] <- msg:
@@ -212,4 +211,11 @@ func fnv32a(key string) uint32 {
 		h *= prime32
 	}
 	return h
+}
+
+func getPartitionKey(msg interface{}) string {
+	if m, ok := msg.(*v1.Message); ok {
+		return m.PartitionKey()
+	}
+	return ""
 }
