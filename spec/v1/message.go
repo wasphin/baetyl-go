@@ -83,3 +83,16 @@ type Message struct {
 	Metadata map[string]string `yaml:"meta" json:"meta"`
 	Content  LazyValue         `yaml:"content" json:"content"`
 }
+
+// PartitionKey 返回消息的分区键，用于将消息路由到固定 worker 以保证有序处理。
+func (m *Message) PartitionKey() string {
+	key := string(m.Kind)
+
+	if m.Metadata != nil {
+		for _, v := range m.Metadata {
+			key += "_" + v
+		}
+	}
+
+	return key
+}
