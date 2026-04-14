@@ -11,6 +11,9 @@ import (
 
 var (
 	ErrProcessorTimeout = errors.New("failed to send message because of timeout")
+
+	ErrProcessorToManyMessages = errors.New("too many messages")
+	ErrProcessorInvalidHandler = errors.New("invalid handler")
 )
 
 type Processor interface {
