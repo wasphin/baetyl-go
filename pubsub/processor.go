@@ -99,7 +99,7 @@ func (p *processor) processing() error {
 type KeyFunc func(msg interface{}) string
 
 const defaultWorkerNum = 16
-const defaultWorkerChanSize = 100
+const defaultWorkerChanSize = 1024
 
 // NewOrderedProcessor creates a processor that guarantees messages with the same
 // partition key (returned by keyFunc) are processed sequentially.
@@ -157,12 +157,7 @@ func (p *orderedProcessor) dispatch() error {
 			}
 			key := getPartitionKey(msg)
 			idx := fnv32a(key) % uint32(p.workerNum)
-			select {
-			case p.workers[idx] <- msg:
-			default:
-				p.log.Warn("worker channel full, message dropped",
-					log.Error(ErrProcessorToManyMessages), log.Any("key", key))
-			}
+			p.workers[idx] <- msg
 		case <-p.tomb.Dying():
 			return nil
 		}
