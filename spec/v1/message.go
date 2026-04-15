@@ -1,5 +1,10 @@
 package v1
 
+import (
+	"sort"
+	"strings"
+)
+
 // MessageKind message kind
 type MessageKind string
 
@@ -87,11 +92,21 @@ type Message struct {
 // PartitionKey 返回消息的分区键，用于将消息路由到固定 worker 以保证有序处理。
 func (m *Message) PartitionKey() string {
 	key := string(m.Kind)
-
 	if m.Metadata != nil {
-		for _, v := range m.Metadata {
-			key += "_" + v
+		keys := make([]string, 0, len(m.Metadata))
+		for k := range m.Metadata {
+			keys = append(keys, k)
 		}
+		sort.Strings(keys)
+		var buf strings.Builder
+		buf.WriteString(key)
+		for _, k := range keys {
+			buf.WriteByte('_')
+			buf.WriteString(k)
+			buf.WriteByte(':')
+			buf.WriteString(m.Metadata[k])
+		}
+		key = buf.String()
 	}
 
 	return key
